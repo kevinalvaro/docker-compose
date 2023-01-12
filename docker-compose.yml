@@ -41,22 +41,17 @@ services:
     command:
       - '--default-authentication-plugin=mysql_native_password'
 
-  nginx:
-    # default ports 80, 443 - expose mapping as needed to host
-    image: nginx:1
-    container_name: wp-nginx
-    env_file:
-      - secret.env
-    restart: unless-stopped
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
     networks:
       - wordpress
-    depends_on:
-      - wordpress
     ports:
-      - "8080:80"    # http
-      - "8443:443"   # https
+      - 80:80
+      - 443:443
+    restart: always
     volumes:
-      - ${WORDPRESS_LOCAL_HOME}:/var/www/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
 
   # adminer - bring up only as needed - bypasses nginx
 #  adminer:
