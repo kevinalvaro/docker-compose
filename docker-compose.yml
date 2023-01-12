@@ -57,7 +57,6 @@ services:
       - "8443:443"   # https
     volumes:
       - ${WORDPRESS_LOCAL_HOME}:/var/www/html
-      - ${NGINX_CONF}:/etc/nginx/conf.d/default.conf
 
   # adminer - bring up only as needed - bypasses nginx
 #  adminer:
