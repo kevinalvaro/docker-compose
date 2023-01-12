@@ -1,72 +1,68 @@
-version: '3.9'
+version: '3.4'
 services:
+    nginx-proxy:
+        image: jwilder/nginx-proxy
+        container_name: nginx-proxy
+        ports:
+            - 80:80
+            - 443:443
+        restart: always
+        volumes:
+            - /var/run/docker.sock:/tmp/docker.sock:ro
 
-  wordpress:
-    # default port 9000 (FastCGI)
-    image: wordpress:5-fpm
-    container_name: wp-wordpress
-    env_file:
-      - secret.env
-    restart: unless-stopped
-    networks:
-      - wordpress
-    depends_on:
-      - database
-    volumes:
-      - ${WORDPRESS_LOCAL_HOME}/:/var/www/html
-      - ${WORDPRESS_UPLOADS_CONFIG}/:/usr/local/etc/php/conf.d/uploads.ini
-      # - /path/to/repo/myTheme/:/var/www/html/wp-content/themes/myTheme
-    environment:
-      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
-      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME}
-      - WORDPRESS_DB_USER=${WORDPRESS_DB_USER}
-      - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD}
+    wordpress_app:
+        image: wordpress
+        restart: always
+        container_name: wordpress_app
+        environment:
+            - VIRTUAL_PORT=80
+            - WORDPRESS_DB_HOST=mysql_server:3306
+            - WORDPRESS_DB_USER=db_username
+            - WORDPRESS_DB_PASSWORD=db_password
+            - WORDPRESS_DB_NAME=wordpress_app
+        depends_on:
+            - nginx-proxy
+            - mysql_server
+        volumes:
+            - wordpress_app_public_html:/var/www/html
+        expose:
+            - 80
 
-  database:
-    # default port 3306
-    image: mysql:8
-    container_name: wp-database
-    env_file:
-      - secret.env
-    restart: unless-stopped
-    networks:
-      - wordpress
-    environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-    volumes:
-      - ${MYSQL_LOCAL_HOME}/:/var/lib/mysql
-    command:
-      - '--default-authentication-plugin=mysql_native_password'
+    phpmyadmin:
+        image: phpmyadmin
+        container_name: phpmyadmin
+        restart: always
+        environment:
+            - VIRTUAL_HOST=phpmyadmin.mydomain.com
+            - VIRTUAL_PORT=80
+            - PMA_HOST=mysql_server:3306
+            - MYSQL_USERNAME=root
+            - MYSQL_ROOT_PASSWORD=db_root_password
+        depends_on:
+            - nginx-proxy
+            - mysql_server
+        volumes:
+            - wordpress_app_public_html:/var/www/html
+        expose:
+            - 80
 
-  nginx-proxy:
-    image: jwilder/nginx-proxy
-    container_name: nginx-proxy
-    networks:
-      - wordpress
-    ports:
-      - 80:80
-      - 443:443
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
+    mysql_server:
+        image: mysql:latest
+        restart: always
+        container_name: mysql_server
+        environment:
+            - MYSQL_DATABASE=wordpress_app
+            - MYSQL_USER=db_username
+            - MYSQL_PASSWORD=db_password
+            - MYSQL_ROOT_PASSWORD=db_root_password
+        volumes:
+            - mysql_server_data:/var/lib/mysql
 
-  # adminer - bring up only as needed - bypasses nginx
-#  adminer:
-#    # default port 8080
-#    image: adminer:4
-#    container_name: wp-adminer
-#    restart: unless-stopped
-#    networks:
-#      - wordpress
-#    depends_on:
-#      - database
-#    ports:
-#      - "9000:8080"
+volumes:
+    wordpress_app_public_html:
+    mysql_server_data:
 
 networks:
-  wordpress:
-    name: wp-wordpress
-    driver: bridge
+    default:
+       external:
+           name: nginx-proxy
